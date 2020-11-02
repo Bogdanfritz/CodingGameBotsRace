@@ -1,3 +1,4 @@
+League time - 1 hour 15 minutes
 Upgraded to wood league 1. obtained boost.
 I'm unhappy with my previous solution. I'm thinking of slowing down just before I reach a checkpoint to allow myself to rotate
 
@@ -8,3 +9,5 @@ I am thinking of racing cars. I don't have any knowledge before the race of the 
 There seem to be some racing strategies which i might be able to use.
 
 Second choice i made was to pack my solution into a class for easier future iterations.
+
+Time elapsed so far: 1 hour 15 minutes

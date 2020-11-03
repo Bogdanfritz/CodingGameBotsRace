@@ -1,4 +1,4 @@
-League time - 2 hour 15 minutes
+League time - 3 hour 15 minutes
 Upgraded to wood league 1. obtained boost.
 I'm unhappy with my previous solution. I'm thinking of slowing down just before I reach a checkpoint to allow myself to rotate
 
@@ -46,3 +46,19 @@ Time elapsed 30 minutes
 Todo: update break based on distance remaining to target - constant value perhaps?
 Keep moving after checkpoint but at slower pace?	
 
+I realised making the turning window smaller is not actually making me turn faster. 
+Instead it takes longer until i thrust while rotating to new checkpoint. Raising the angle back to 90 degrees made me clear wood league 1.
+
+Time elapsed 15 minutes
+My braking solution before checkpoints is not working properly because i'm changing the state and updating the thrust next frame. So I made the thrust be updated when the state changed.
+Updated thrust treshold constant to 600 to make sure i pass  units.
+Encountered issue:
+	- There seems to be a higher speed of clearing the race with the threshold at 1000, but there is an edge case where my pod gets stuck because due to speedy turns it doesn't reach the checkpoint.
+I added an edge case when I detect not getting any closer to the destination for 1 frame to thrust in that direction. Since I usually get stuck next to checkpoints one thrust should be enough.
+It is not enough.
+I will keep the stuck logic for now in case it arises later.
+
+The problem is indeed cases where checkpoints are close together.
+Letting it run for a while i got promoted to Bronze League. 
+
+Time elapsed: 15 minutes.

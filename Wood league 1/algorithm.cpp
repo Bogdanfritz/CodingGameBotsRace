@@ -2,7 +2,7 @@
 #include <string>
 #include <vector>
 #include <algorithm>
-#include <math.h>
+#include <cmath>
 
 using namespace std;
 
@@ -61,9 +61,10 @@ struct SpeedBoost
 
 class Solution
 {
-	int K_MIN_THRUST_ANGLE = 10;
+	int K_MIN_THRUST_ANGLE = 90;
 	int K_MIN_BOOST_ANGLE = 10;
 	float K_BRAKE_FROM_DISTANCE = 1000;
+	int K_MAX_STUCK_FRAMES = 1;
 
 	Vector2 position;
 	int nextX = 0;
@@ -72,6 +73,7 @@ class Solution
 	int nextCheckpointAngle = 0;
 	int distanceToNextCheckpoint = 0;
 	int maxDistanceCheckpointIndex = 0;
+	int framesStuckBraking = 0;
 
 	vector<Checkpoint> checkpoints;
 	int currentCheckpointIndex = -1;
@@ -170,18 +172,11 @@ class Solution
 	{
 		bool facingTowardsCheckpoint = FacingTowardsCheckpoint();
 		bool inBrakeDistance = IsInBrakeDistanceToCheckpoint();
-		cerr << !facingTowardsCheckpoint << " " << inBrakeDistance << endl;
 		return !facingTowardsCheckpoint || inBrakeDistance;
 	}
 
 	bool IsInBrakeDistanceToCheckpoint()
 	{
-		int maxDistance = checkpoints[currentCheckpointIndex].distanceFromPrevious;
-		if (maxDistance == 0)
-		{
-			cerr << "ERROR : distance from previous point is zero!" << endl;
-			return false;
-		}
 		return distanceToNextCheckpoint < K_BRAKE_FROM_DISTANCE;
 	}
 
@@ -193,35 +188,53 @@ class Solution
 	void ChanceState(PodState newState)
 	{
 		state = newState;
+		switch (state)
+		{
+			case PodState::Thrusting:
+			{
+				thrust = 100;
+				break;
+			}
+			case PodState::Braking:
+			{
+				thrust = 0;
+				break;
+			}
+		}
 	}
 
 	void UpdateState()
 	{
 		switch (state)
 		{
-		case PodState::Thrusting:
-		{
-			if (ShouldBrake())
+			case PodState::Thrusting:
 			{
-				ChanceState(PodState::Braking);
+				if (ShouldBrake())
+				{
+					ChanceState(PodState::Braking);
+				}
+				else
+				{
+					thrust = 100;
+				}
+				break;
 			}
-			else
+			case PodState::Braking:
 			{
-				thrust = 100;
+				if (ShouldThrust() || framesStuckBraking >= K_MAX_STUCK_FRAMES)
+				{
+					ChanceState(PodState::Thrusting);
+				}
+				break;
 			}
-			break;
-		}
-		case PodState::Braking:
-		{
-			thrust = 0;
-			if (ShouldThrust())
-			{
-				ChanceState(PodState::Thrusting);
-			}
-			break;
-		}
 		}
 	}
+
+	void CheckForStuckFrames(int distanceToTarget)
+	{
+		framesStuckBraking = distanceToNextCheckpoint == distanceToTarget ? framesStuckBraking + 1 : 0;
+	}
+
 public:
 
 	Solution() : position(0, 0) { speedBoost.count = 1; }
@@ -231,7 +244,10 @@ public:
 		position.x = x;
 		position.y = y;
 		nextCheckpointAngle = angleToTarget;
+
+
 		distanceToNextCheckpoint = distanceToTarget;
+
 
 		CheckNextCheckpoint(targetX, targetY);
 	}

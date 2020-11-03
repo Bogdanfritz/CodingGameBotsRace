@@ -6,6 +6,9 @@
 
 using namespace std;
 
+template<typename T>
+constexpr T pi = T(3.1415926535897932385);
+
 /**
  * Auto-generated code below aims at helping you parse
  * the standard input according to the problem statement.
@@ -19,15 +22,55 @@ enum class PodState
 
 struct Vector2
 {
-	int x;
-	int y;
-	Vector2(int newX, int newY) : x(newX), y(newY) {}
+	float x;
+	float y;
+	Vector2(float newX, float newY) : x(newX), y(newY) {}
 
 	static int GetDistance(const Vector2& vector1, const Vector2& vector2)
 	{
-		int diffX = vector1.x - vector2.x;
-		int diffY = vector1.y - vector2.y;
+		float diffX = vector1.x - vector2.x;
+		float diffY = vector1.y - vector2.y;
 		return (int)sqrt(diffX * diffX + diffY * diffY);
+	}
+
+	static float DotProduct(const Vector2& vector1, const Vector2& vector2)
+	{
+		return vector1.x * vector2.x + vector1.y * vector2.y;
+	}
+	static float Determinant(const Vector2& vector1, const Vector2& vector2)
+	{
+		return vector1.x * vector2.y - vector1.y * vector2.x;
+	}
+
+	float Magnitude() const
+	{
+		return sqrtf(x * x + y * y);
+	}
+
+	Vector2 GetNormalized() const
+	{
+		Vector2 normalized(0, 0);
+		float mag = Magnitude();
+		mag = 1 / mag;
+		normalized.x = x * mag;
+		normalized.y = y * mag;
+		return normalized;
+	}
+
+	static Vector2 Substract(const Vector2& vector1, const Vector2& vector2)
+	{
+		Vector2 substractedVector = Vector2(vector2.x - vector1.x, vector2.y - vector1.x);
+	}
+
+	static int GetAngle(const Vector2& vector1, const Vector2& vector2)
+	{
+		Vector2 v2Normalized = vector2.GetNormalized();
+		float dot = DotProduct(vector1, v2Normalized);
+		float theta = acos(dot / (vector1.Magnitude()));
+		cerr << "theta = " << theta << endl;
+		return  theta * 180 / pi<float>;
+		//float determinant = Determinant(vector1, vector2);
+		//return atan2(determinant, dot) * 180 * pi<float>;
 	}
 };
 
@@ -61,14 +104,15 @@ struct SpeedBoost
 
 class Solution
 {
-	int K_MIN_THRUST_ANGLE = 90;
+	int K_STEEP_ANGLE = 90;
+	int K_ALIGNED_ANGLE = 30;
 	int K_MIN_BOOST_ANGLE = 10;
 	float K_BRAKE_FROM_DISTANCE = 1000;
 	int K_MAX_STUCK_FRAMES = 1;
 
 	Vector2 position;
-	int nextX = 0;
-	int nextY = 0;
+	float nextX = 0;
+	float nextY = 0;
 	int thrust = 0;
 	int nextCheckpointAngle = 0;
 	int distanceToNextCheckpoint = 0;
@@ -95,7 +139,7 @@ class Solution
 			cout << thrust << endl;
 		}
 	}
-	void AddNewCheckpoint(int x, int y)
+	void AddNewCheckpoint(float x, float y)
 	{
 		Vector2 previousCheckpointPosition = position;
 		if (checkpoints.size() != 0)
@@ -116,7 +160,8 @@ class Solution
 			maxDistanceCheckpointIndex = currentCheckpointIndex;
 		}
 	}
-	void CheckNextCheckpoint(int x, int y)
+
+	void CheckNextCheckpoint(float x, float y)
 	{
 		if (nextX != x || nextY != y)
 		{
@@ -134,7 +179,7 @@ class Solution
 			nextY = y;
 		}
 	}
-	int FindCheckpoint(int x, int y)
+	int FindCheckpoint(float x, float y)
 	{
 		//liniar approach for now
 		for (int index = 0; index < checkpoints.size(); index++)
@@ -165,7 +210,12 @@ class Solution
 
 	bool FacingTowardsCheckpoint()
 	{
-		return nextCheckpointAngle < K_MIN_THRUST_ANGLE&& nextCheckpointAngle > -K_MIN_THRUST_ANGLE;
+		return nextCheckpointAngle < K_STEEP_ANGLE&& nextCheckpointAngle > -K_STEEP_ANGLE;
+	}
+
+	bool AlignedToNextCheckpoint()
+	{
+		return nextCheckpointAngle < K_ALIGNED_ANGLE&& nextCheckpointAngle > -K_ALIGNED_ANGLE;
 	}
 
 	bool ShouldBrake()
@@ -190,43 +240,60 @@ class Solution
 		state = newState;
 		switch (state)
 		{
-			case PodState::Thrusting:
-			{
-				thrust = 100;
-				break;
-			}
-			case PodState::Braking:
-			{
-				thrust = 0;
-				break;
-			}
+		case PodState::Thrusting:
+		{
+			UpdateThrust();
+			break;
 		}
+		case PodState::Braking:
+		{
+			UpdateBraking();
+			break;
+		}
+		}
+	}
+
+	void UpdateThrust()
+	{
+		if (!AlignedToNextCheckpoint())
+		{
+			thrust = 50;
+		}
+		else
+		{
+			thrust = 100;
+		}
+	}
+
+	void UpdateBraking()
+	{
+		thrust = 0;
 	}
 
 	void UpdateState()
 	{
 		switch (state)
 		{
-			case PodState::Thrusting:
+		case PodState::Thrusting:
+		{
+			if (ShouldBrake())
 			{
-				if (ShouldBrake())
-				{
-					ChanceState(PodState::Braking);
-				}
-				else
-				{
-					thrust = 100;
-				}
-				break;
+				ChanceState(PodState::Braking);
 			}
-			case PodState::Braking:
+			else
 			{
-				if (ShouldThrust() || framesStuckBraking >= K_MAX_STUCK_FRAMES)
-				{
-					ChanceState(PodState::Thrusting);
-				}
-				break;
+				UpdateThrust();
 			}
+			break;
+		}
+		case PodState::Braking:
+		{
+			if (ShouldThrust() || framesStuckBraking >= K_MAX_STUCK_FRAMES)
+			{
+				ChanceState(PodState::Thrusting);
+			}
+			break;
+		}
 		}
 	}
 
@@ -239,13 +306,13 @@ public:
 
 	Solution() : position(0, 0) { speedBoost.count = 1; }
 
-	void UpdateData(int x, int y, int targetX, int targetY, int distanceToTarget, int angleToTarget)
+	void UpdateData(float x, float y, float targetX, float targetY, int distanceToTarget, int angleToTarget)
 	{
 		position.x = x;
 		position.y = y;
 		nextCheckpointAngle = angleToTarget;
 
-		CheckForStuckFrames(distanceToTarget);
+
 		distanceToNextCheckpoint = distanceToTarget;
 
 
@@ -258,6 +325,8 @@ public:
 			UpdateFirstLap();
 		}
 
+		cerr << Vector2::GetAngle(position, checkpoints[currentCheckpointIndex].position) << " " << nextCheckpointAngle << endl;
+
 		UpdateState();
 		TryBoost();
 		PrintCurrentChoice();
@@ -269,10 +338,10 @@ int main()
 	Solution solution;
 	// game loop
 	while (1) {
-		int x;
-		int y;
-		int nextCheckpointX; // x position of the next check point
-		int nextCheckpointY; // y position of the next check point
+		float x;
+		float y;
+		float nextCheckpointX; // x position of the next check point
+		float nextCheckpointY; // y position of the next check point
 		int nextCheckpointDist; // distance to the next checkpoint
 		int nextCheckpointAngle; // angle between your pod orientation and the direction of the next checkpoint
 		cin >> x >> y >> nextCheckpointX >> nextCheckpointY >> nextCheckpointDist >> nextCheckpointAngle; cin.ignore();

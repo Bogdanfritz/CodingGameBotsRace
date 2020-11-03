@@ -1,4 +1,4 @@
-League time - 1 hour 15 minutes
+League time - 2 hour 15 minutes
 Upgraded to wood league 1. obtained boost.
 I'm unhappy with my previous solution. I'm thinking of slowing down just before I reach a checkpoint to allow myself to rotate
 
@@ -11,3 +11,38 @@ There seem to be some racing strategies which i might be able to use.
 Second choice i made was to pack my solution into a class for easier future iterations.
 
 Time elapsed so far: 1 hour 15 minutes
+
+Updated boost to be used starting with the second lap, on the longest distance checkpoint.
+
+Issues encountered 
+	- Having multiple booleans for the boost was annoying so i put it in a structure
+	- AddNewCheckpoint default value was the next checkpoint resulting in a zero distance for the first checkpoint 
+
+Even with the boost, it takes my pod too long to rotate when reaching a new checkpoint.
+I lowered the brake angle to 10 degrees. Still not good enough.
+I remembered the problem is with the braking before reaching a checkpoint, so i created a treshold to brake at 70% of the distance between checkpoints.
+
+Issues encountered 
+	- First index was 1 so i was going out of range accessing the current checkpoint
+	- I can't brake unless my thrust is higher than zero. Before adding this check, my pod woudn't move at all
+	- With the check, not the condition is on and off every frame so it's not working as inteded. It should keep braking until reaching checkpoint and realigning. I am thinking of adding a state machine for this with Thrusting and Braking as values.
+
+Time elapsed 1 hour.
+
+Moved braking condintions in ShouldBrake method
+
+Issued encountered 
+	- Finding the proper conditions to brake and thrust
+	- My distance condition was wrong. Changed it to 1 - currentDistance/maxDistance < tresholdConstant
+	- After changing the brake condition, it was still wrong
+	- The distance condition was wrong again. it should check if > tresholdConstant
+	- Pod still not moving because thrust is 0
+	- Angle to checkpoint check became invalid when moved into it's own method
+	- Fixed and when retesting, the pod brakes after moving out
+	- Division had ints as parameters. Converted to floats
+	- Braking doesn't work as intended. It should break before reaching the target, but it won't always go in a straight line from the previous checkpoint.
+	
+Time elapsed 30 minutes
+Todo: update break based on distance remaining to target - constant value perhaps?
+Keep moving after checkpoint but at slower pace?	
+

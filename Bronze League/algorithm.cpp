@@ -9,10 +9,7 @@ using namespace std;
 template<typename T>
 constexpr T pi = T(3.1415926535897932385);
 
-/**
- * Auto-generated code below aims at helping you parse
- * the standard input according to the problem statement.
- **/
+const static float RAD2DEGREE = 180 / pi<float>;
 
 enum class PodState
 {
@@ -25,21 +22,18 @@ struct Vector2
 	float x;
 	float y;
 	Vector2(float newX, float newY) : x(newX), y(newY) {}
+	Vector2(const Vector2& pos) : x(pos.x), y(pos.y) {}
 
-	static int GetDistance(const Vector2& vector1, const Vector2& vector2)
+	float GetDistance(const Vector2& other)
 	{
-		float diffX = vector1.x - vector2.x;
-		float diffY = vector1.y - vector2.y;
-		return (int)sqrt(diffX * diffX + diffY * diffY);
+		float diffX = x - other.x;
+		float diffY = y - other.y;
+		return sqrt(diffX * diffX + diffY * diffY);
 	}
 
-	static float DotProduct(const Vector2& vector1, const Vector2& vector2)
+	float DotProduct(const Vector2& other)
 	{
-		return vector1.x * vector2.x + vector1.y * vector2.y;
-	}
-	static float Determinant(const Vector2& vector1, const Vector2& vector2)
-	{
-		return vector1.x * vector2.y - vector1.y * vector2.x;
+		return x * other.x + y * other.y;
 	}
 
 	float Magnitude() const
@@ -57,29 +51,41 @@ struct Vector2
 		return normalized;
 	}
 
-	static Vector2 Substract(const Vector2& vector1, const Vector2& vector2)
+	Vector2 Substract(const Vector2& other) const
 	{
-		Vector2 substractedVector = Vector2(vector2.x - vector1.x, vector2.y - vector1.x);
+		Vector2 substractedVector = Vector2(other.x - x, other.y - x);
+		return substractedVector;
 	}
 
-	static int GetAngle(const Vector2& vector1, const Vector2& vector2)
+	int GetAngle(const Vector2& other) const
 	{
-		Vector2 v2Normalized = vector2.GetNormalized();
-		float dot = DotProduct(vector1, v2Normalized);
-		float theta = acos(dot / (vector1.Magnitude()));
-		cerr << "theta = " << theta << endl;
-		return  theta * 180 / pi<float>;
-		//float determinant = Determinant(vector1, vector2);
-		//return atan2(determinant, dot) * 180 * pi<float>;
+		Vector2 normalized1 = GetNormalized();
+		Vector2 normalized2 = other.GetNormalized();
+		float dot = normalized1.DotProduct(normalized2);
+		float theta = acos(dot);
+		return  theta * RAD2DEGREE;
 	}
 };
 
 struct Checkpoint
 {
 	Vector2 position;
-	int distanceFromPrevious = 0;
+	float distanceToNext = 0;
+	int turnAngle = 0;
 
-	Checkpoint() : position(0, 0) {}
+	Checkpoint(const Vector2& newPos) : position(newPos), distanceToNext(0), turnAngle(0) {}
+
+	void SetDistanceToNext(const Vector2& newPosition)
+	{
+		distanceToNext = position.GetDistance(newPosition);
+	}
+
+	void SetTurnAngle(const Vector2& previousCheckpoint, const Vector2& nextCheckpoint)
+	{
+		Vector2 prev = previousCheckpoint.Substract(position);
+		Vector2 next = position.Substract(nextCheckpoint);
+		turnAngle = prev.GetAngle(next);
+	}
 };
 
 struct SpeedBoost
@@ -105,19 +111,18 @@ struct SpeedBoost
 class Solution
 {
 	int K_STEEP_ANGLE = 90;
-	int K_ALIGNED_ANGLE = 30;
-	int K_MIN_BOOST_ANGLE = 10;
+	int K_ALIGNED_ANGLE = 10;
 	float K_BRAKE_FROM_DISTANCE = 1000;
-	int K_MAX_STUCK_FRAMES = 1;
 
 	Vector2 position;
-	float nextX = 0;
-	float nextY = 0;
+
+	float destinationX = 0;
+	float destinationY = 0;
 	int thrust = 0;
 	int nextCheckpointAngle = 0;
 	int distanceToNextCheckpoint = 0;
+
 	int maxDistanceCheckpointIndex = 0;
-	int framesStuckBraking = 0;
 
 	vector<Checkpoint> checkpoints;
 	int currentCheckpointIndex = -1;
@@ -129,7 +134,7 @@ class Solution
 
 	void PrintCurrentChoice()
 	{
-		cout << nextX << " " << nextY << " ";
+		cout << destinationX << " " << destinationY << " ";
 		if (speedBoost.shouldUseBoost)
 		{
 			speedBoost.Boost();
@@ -139,31 +144,42 @@ class Solution
 			cout << thrust << endl;
 		}
 	}
+
 	void AddNewCheckpoint(float x, float y)
 	{
-		Vector2 previousCheckpointPosition = position;
-		if (checkpoints.size() != 0)
-		{
-			previousCheckpointPosition = checkpoints[currentCheckpointIndex].position;
-		}
-		Checkpoint newCheckpoint;
-		newCheckpoint.position.x = x;
-		newCheckpoint.position.y = y;
-		int distanceFromPrevious = Vector2::GetDistance(newCheckpoint.position, previousCheckpointPosition);
-		newCheckpoint.distanceFromPrevious = distanceFromPrevious;
-
+		Vector2 newPosition(x, y);
+		Checkpoint newCheckpoint(newPosition);
 		checkpoints.push_back(newCheckpoint);
 		currentCheckpointIndex++;
+	}
 
-		if (checkpoints.size() != 0 && distanceFromPrevious > checkpoints[maxDistanceCheckpointIndex].distanceFromPrevious)
+	void UpdateDataBetweenCheckpoints()
+	{
+		if (checkpoints.size() <= 1)
 		{
-			maxDistanceCheckpointIndex = currentCheckpointIndex;
+			return;
+		}
+		size_t checkpointsCount = checkpoints.size();
+
+		for (size_t index = 0; index < checkpointsCount; index++)
+		{
+			size_t nextIndex = (index == (checkpointsCount - 1)) ? 0 : index + 1;
+			checkpoints[index].SetDistanceToNext(checkpoints[nextIndex].position);
+
+			if (checkpoints[index].distanceToNext > checkpoints[maxDistanceCheckpointIndex].distanceToNext)
+			{
+				maxDistanceCheckpointIndex = index;
+			}
+
+			size_t prevIndex = (index == 0) ? checkpointsCount - 1 : index - 1;
+			checkpoints[index].SetTurnAngle(checkpoints[prevIndex].position, checkpoints[nextIndex].position);
+			cerr << index << " has turn angle of : " << checkpoints[index].turnAngle << endl;
 		}
 	}
 
 	void CheckNextCheckpoint(float x, float y)
 	{
-		if (nextX != x || nextY != y)
+		if (destinationX != x || destinationY != y)
 		{
 			int checkpointIndex = FindCheckpoint(x, y);
 			if (checkpointIndex == -1)
@@ -175,8 +191,8 @@ class Solution
 				firstLapFinished = true;
 				currentCheckpointIndex = checkpointIndex;
 			}
-			nextX = x;
-			nextY = y;
+			destinationX = x;
+			destinationY = y;
 		}
 	}
 	int FindCheckpoint(float x, float y)
@@ -194,13 +210,14 @@ class Solution
 
 	void UpdateFirstLap()
 	{
+		UpdateDataBetweenCheckpoints();
 		speedBoost.TryAllowBoost();
 		firstLapUpdateDone = false;
 	}
 
 	void TryBoost()
 	{
-		if (FacingTowardsCheckpoint() && speedBoost.canUseBoost && currentCheckpointIndex == maxDistanceCheckpointIndex)
+		if (AlignedToNextCheckpoint() && speedBoost.canUseBoost && currentCheckpointIndex == maxDistanceCheckpointIndex)
 		{
 			speedBoost.count--;
 			speedBoost.canUseBoost = speedBoost.count > 0;
@@ -288,18 +305,13 @@ class Solution
 		}
 		case PodState::Braking:
 		{
-			if (ShouldThrust() || framesStuckBraking >= K_MAX_STUCK_FRAMES)
+			if (ShouldThrust())
 			{
 				ChanceState(PodState::Thrusting);
 			}
 			break;
 		}
 		}
-	}
-
-	void CheckForStuckFrames(int distanceToTarget)
-	{
-		framesStuckBraking = distanceToNextCheckpoint == distanceToTarget ? framesStuckBraking + 1 : 0;
 	}
 
 public:
@@ -311,11 +323,7 @@ public:
 		position.x = x;
 		position.y = y;
 		nextCheckpointAngle = angleToTarget;
-
-
 		distanceToNextCheckpoint = distanceToTarget;
-
-
 		CheckNextCheckpoint(targetX, targetY);
 	}
 	void UpdateLogic()
@@ -324,8 +332,6 @@ public:
 		{
 			UpdateFirstLap();
 		}
-
-		cerr << Vector2::GetAngle(position, checkpoints[currentCheckpointIndex].position) << " " << nextCheckpointAngle << endl;
 
 		UpdateState();
 		TryBoost();

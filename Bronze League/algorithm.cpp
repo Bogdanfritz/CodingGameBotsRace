@@ -17,10 +17,12 @@ enum class PodState
 	Braking
 };
 
-struct Vector2
+class Vector2
 {
 	float x;
 	float y;
+
+public:
 	Vector2() : x(0), y(0) {}
 	Vector2(float newX, float newY) : x(newX), y(newY) {}
 	Vector2(const Vector2& pos) : x(pos.x), y(pos.y) {}
@@ -42,21 +44,6 @@ struct Vector2
 		return sqrtf(x * x + y * y);
 	}
 
-	Vector2 operator +(const Vector2& other) const
-	{
-		return Vector2(x + other.x, y + other.y);
-	}
-
-	Vector2 operator /(float scalar)
-	{
-		return Vector2(x / scalar, y / scalar);
-	}
-
-	Vector2 operator *(float scalar)
-	{
-		return Vector2(x * scalar, y * scalar);
-	}
-
 	Vector2 Midpoint(const Vector2& other)
 	{
 		Vector2 midpoint = ((*this + other) / 2);
@@ -71,11 +58,6 @@ struct Vector2
 		normalized.x = x * mag;
 		normalized.y = y * mag;
 		return normalized;
-	}
-
-	Vector2 operator -(const Vector2& other) const
-	{
-		return Vector2(other.x - x, other.y - y);
 	}
 
 	int GetAngle(const Vector2& other) const
@@ -98,6 +80,45 @@ struct Vector2
 	{
 		return x != other.x || y != other.y;
 	}
+
+	bool operator == (const Vector2& other) const
+	{
+		return x == other.x && y == other.y;
+	}
+
+	Vector2 operator +(const Vector2& other) const
+	{
+		return Vector2(x + other.x, y + other.y);
+	}
+
+	Vector2 operator -(const Vector2& other) const
+	{
+		return Vector2(other.x - x, other.y - y);
+	}
+
+	Vector2 operator /(float scalar)
+	{
+		return Vector2(x / scalar, y / scalar);
+	}
+
+	Vector2 operator *(float scalar)
+	{
+		return Vector2(x * scalar, y * scalar);
+	}
+
+	void SetPosition(const Vector2& other)
+	{
+		x = other.x;
+		y = other.y;
+	}
+	void SetPosition(float newX, float newY)
+	{
+		x = newX;
+		y = newY;
+	}
+
+	float GetX() const { return x; }
+	float GetY() const { return y; }
 };
 
 struct Checkpoint
@@ -148,9 +169,7 @@ class Solution
 	float K_BRAKE_FROM_DISTANCE = 1000;
 
 	Vector2 position;
-
-	float destinationX = 0;
-	float destinationY = 0;
+	Vector2 destination;
 	int thrust = 0;
 	int nextCheckpointAngle = 0;
 	int distanceToNextCheckpoint = 0;
@@ -167,7 +186,7 @@ class Solution
 
 	void PrintCurrentChoice()
 	{
-		cout << (int)destinationX << " " << (int)destinationY << " ";
+		cout << (int)destination.GetX() << " " << (int)destination.GetY() << " ";
 		if (speedBoost.shouldUseBoost)
 		{
 			speedBoost.Boost();
@@ -236,7 +255,7 @@ class Solution
 		//liniar approach for now
 		for (int index = 0; index < checkpoints.size(); index++)
 		{
-			if (checkpoints[index].position.x == x && checkpoints[index].position.y == y)
+			if (checkpoints[index].position == checkpoints[index].position)
 			{
 				return index;
 			}
@@ -321,7 +340,6 @@ class Solution
 	void AdjustTrajectoryBasedOnDeviation()
 	{
 		Vector2 newTarget;
-		cerr << "angle of movement: " << ComputeAngleOfMovement() << endl;
 		if (ComputeAngleOfMovement() > K_ALIGNED_ANGLE)
 		{
 			Vector2 previousCheckpoint = checkpoints[currentCheckpointIndex - 1].position;
@@ -331,15 +349,15 @@ class Solution
 
 			Vector2 unitCurrentpath = currentPath.GetNormalized();
 			float distanceToNextCheckpoint = position.GetDistance(nextCheckpoint);
-			unitCurrentpath = unitCurrentpath * (distanceToNextCheckpoint / 2) + nextCheckpoint;
+			float distanceBetweenCheckpoints = checkpoints[currentCheckpointIndex - 1].distanceToNext;
+			unitCurrentpath = unitCurrentpath * (min(distanceBetweenCheckpoints / 2, distanceToNextCheckpoint / 2)) + nextCheckpoint;
 			newTarget = unitCurrentpath;
 		}
 		else
 		{
 			newTarget = checkpoints[currentCheckpointIndex].position;
 		}
-		destinationX = newTarget.x;
-		destinationY = newTarget.y;
+		destination = newTarget;
 	}
 
 	void UpdateThrust()
@@ -347,7 +365,7 @@ class Solution
 		if (!AlignedToNextCheckpoint())
 		{
 			//Rotation speed?
-			thrust = 50;
+			thrust = 100; // for now keep it full throttle
 		}
 		else
 		{
@@ -393,8 +411,7 @@ public:
 
 	void UpdateData(float x, float y, float targetX, float targetY, int distanceToTarget, int angleToTarget)
 	{
-		position.x = x;
-		position.y = y;
+		position.SetPosition(x, y);
 		nextCheckpointAngle = angleToTarget;
 		distanceToNextCheckpoint = distanceToTarget;
 		CheckNextCheckpoint(targetX, targetY);

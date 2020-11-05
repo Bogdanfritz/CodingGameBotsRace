@@ -238,7 +238,7 @@ class Solution
 
 		if (checkpointPosition != checkpoints[currentCheckpointIndex].position)
 		{
-			int checkpointIndex = FindCheckpoint(x, y);
+			int checkpointIndex = FindCheckpoint(checkpointPosition);
 			if (checkpointIndex == -1)
 			{
 				AddNewCheckpoint(x, y);
@@ -250,12 +250,12 @@ class Solution
 			}
 		}
 	}
-	int FindCheckpoint(float x, float y)
+	int FindCheckpoint(const Vector2& newCheckpoint)
 	{
 		//liniar approach for now
 		for (int index = 0; index < checkpoints.size(); index++)
 		{
-			if (checkpoints[index].position == checkpoints[index].position)
+			if (checkpoints[index].position == newCheckpoint)
 			{
 				return index;
 			}
@@ -342,14 +342,15 @@ class Solution
 		Vector2 newTarget;
 		if (ComputeAngleOfMovement() > K_ALIGNED_ANGLE)
 		{
-			Vector2 previousCheckpoint = checkpoints[currentCheckpointIndex - 1].position;
+			size_t prevIndex = (currentCheckpointIndex == 0) ? checkpoints.size() - 1 : currentCheckpointIndex - 1;
+			Vector2 previousCheckpoint = checkpoints[prevIndex].position;
 			Vector2 nextCheckpoint = checkpoints[currentCheckpointIndex].position;
 
 			Vector2 currentPath = nextCheckpoint - previousCheckpoint;
 
 			Vector2 unitCurrentpath = currentPath.GetNormalized();
 			float distanceToNextCheckpoint = position.GetDistance(nextCheckpoint);
-			float distanceBetweenCheckpoints = checkpoints[currentCheckpointIndex - 1].distanceToNext;
+			float distanceBetweenCheckpoints = previousCheckpoint.GetDistance(nextCheckpoint);
 			unitCurrentpath = unitCurrentpath * (min(distanceBetweenCheckpoints / 2, distanceToNextCheckpoint / 2)) + nextCheckpoint;
 			newTarget = unitCurrentpath;
 		}

@@ -50,4 +50,5 @@ Will check it now. And yes. finally, a success!
      now the problem is the closer i get, the smaller the distance becomes, so after passing the half point mark, i'm actually target points behind me. 
           Solution - reversed the vectors of the path. Instead of Previous - next, i'm taking the Next to previous vector, normalize it and add the next checkpoint position.
 Aaaand it Works! Kind of. I managed to win one attempt in the test run for Bronze League. Will try several more to check for bugs then try out the arena.
-Elapsed 1 hr
+I still need to make some avoiding logic for enemies. Currently i'm loosing due to getting hit by enemies.
+Elapsed 1 hr 30

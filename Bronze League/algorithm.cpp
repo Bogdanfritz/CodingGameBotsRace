@@ -21,17 +21,18 @@ struct Vector2
 {
 	float x;
 	float y;
+	Vector2() : x(0), y(0) {}
 	Vector2(float newX, float newY) : x(newX), y(newY) {}
 	Vector2(const Vector2& pos) : x(pos.x), y(pos.y) {}
 
-	float GetDistance(const Vector2& other)
+	float GetDistance(const Vector2& other) const
 	{
 		float diffX = x - other.x;
 		float diffY = y - other.y;
 		return sqrt(diffX * diffX + diffY * diffY);
 	}
 
-	float DotProduct(const Vector2& other)
+	float DotProduct(const Vector2& other) const
 	{
 		return x * other.x + y * other.y;
 	}
@@ -39,6 +40,27 @@ struct Vector2
 	float Magnitude() const
 	{
 		return sqrtf(x * x + y * y);
+	}
+
+	Vector2 operator +(const Vector2& other) const
+	{
+		return Vector2(x + other.x, y + other.y);
+	}
+
+	Vector2 operator /(float scalar)
+	{
+		return Vector2(x / scalar, y / scalar);
+	}
+
+	Vector2 operator *(float scalar)
+	{
+		return Vector2(x * scalar, y * scalar);
+	}
+
+	Vector2 Midpoint(const Vector2& other)
+	{
+		Vector2 midpoint = ((*this + other) / 2);
+		return midpoint;
 	}
 
 	Vector2 GetNormalized() const
@@ -51,10 +73,9 @@ struct Vector2
 		return normalized;
 	}
 
-	Vector2 Substract(const Vector2& other) const
+	Vector2 operator -(const Vector2& other) const
 	{
-		Vector2 substractedVector = Vector2(other.x - x, other.y - x);
-		return substractedVector;
+		return Vector2(other.x - x, other.y - y);
 	}
 
 	int GetAngle(const Vector2& other) const
@@ -64,6 +85,18 @@ struct Vector2
 		float dot = normalized1.DotProduct(normalized2);
 		float theta = acos(dot);
 		return  theta * RAD2DEGREE;
+	}
+
+	Vector2 ProjectOn(const Vector2& other) const
+	{
+		float scalarProjection = DotProduct(other) / other.Magnitude();
+		Vector2 projection = other.GetNormalized() * scalarProjection;
+		return projection;
+	}
+
+	bool operator != (const Vector2& other) const
+	{
+		return x != other.x || y != other.y;
 	}
 };
 
@@ -82,8 +115,8 @@ struct Checkpoint
 
 	void SetTurnAngle(const Vector2& previousCheckpoint, const Vector2& nextCheckpoint)
 	{
-		Vector2 prev = previousCheckpoint.Substract(position);
-		Vector2 next = position.Substract(nextCheckpoint);
+		Vector2 prev = previousCheckpoint - position;
+		Vector2 next = position - nextCheckpoint;
 		turnAngle = prev.GetAngle(next);
 	}
 };
@@ -134,7 +167,7 @@ class Solution
 
 	void PrintCurrentChoice()
 	{
-		cout << destinationX << " " << destinationY << " ";
+		cout << (int)destinationX << " " << (int)destinationY << " ";
 		if (speedBoost.shouldUseBoost)
 		{
 			speedBoost.Boost();
@@ -143,14 +176,6 @@ class Solution
 		{
 			cout << thrust << endl;
 		}
-	}
-
-	void AddNewCheckpoint(float x, float y)
-	{
-		Vector2 newPosition(x, y);
-		Checkpoint newCheckpoint(newPosition);
-		checkpoints.push_back(newCheckpoint);
-		currentCheckpointIndex++;
 	}
 
 	void UpdateDataBetweenCheckpoints()
@@ -173,13 +198,26 @@ class Solution
 
 			size_t prevIndex = (index == 0) ? checkpointsCount - 1 : index - 1;
 			checkpoints[index].SetTurnAngle(checkpoints[prevIndex].position, checkpoints[nextIndex].position);
-			cerr << index << " has turn angle of : " << checkpoints[index].turnAngle << endl;
 		}
+	}
+
+	void AddNewCheckpoint(float x, float y)
+	{
+		Vector2 newPosition(x, y);
+		Checkpoint newCheckpoint(newPosition);
+		checkpoints.push_back(newCheckpoint);
+		currentCheckpointIndex++;
 	}
 
 	void CheckNextCheckpoint(float x, float y)
 	{
-		if (destinationX != x || destinationY != y)
+		if (checkpoints.size() == 0)
+		{
+			AddNewCheckpoint(x, y);
+		}
+		Vector2 checkpointPosition = Vector2(x, y);
+
+		if (checkpointPosition != checkpoints[currentCheckpointIndex].position)
 		{
 			int checkpointIndex = FindCheckpoint(x, y);
 			if (checkpointIndex == -1)
@@ -191,8 +229,6 @@ class Solution
 				firstLapFinished = true;
 				currentCheckpointIndex = checkpointIndex;
 			}
-			destinationX = x;
-			destinationY = y;
 		}
 	}
 	int FindCheckpoint(float x, float y)
@@ -238,8 +274,7 @@ class Solution
 	bool ShouldBrake()
 	{
 		bool facingTowardsCheckpoint = FacingTowardsCheckpoint();
-		bool inBrakeDistance = IsInBrakeDistanceToCheckpoint();
-		return !facingTowardsCheckpoint || inBrakeDistance;
+		return !facingTowardsCheckpoint;
 	}
 
 	bool IsInBrakeDistanceToCheckpoint()
@@ -249,7 +284,7 @@ class Solution
 
 	bool ShouldThrust()
 	{
-		return FacingTowardsCheckpoint() && !IsInBrakeDistanceToCheckpoint();
+		return FacingTowardsCheckpoint();
 	}
 
 	void ChanceState(PodState newState)
@@ -270,10 +305,48 @@ class Solution
 		}
 	}
 
+	float ComputeAngleOfMovement()
+	{
+		float angle = 0;
+		if (checkpoints.size() > 1)
+		{
+			Vector2 previousCheckpoint = checkpoints[currentCheckpointIndex - 1].position;
+			Vector2 nextCheckpoint = checkpoints[currentCheckpointIndex].position;
+			Vector2 currentPath = previousCheckpoint - nextCheckpoint;
+			angle = position.GetAngle(currentPath);
+		}
+		return angle;
+	}
+
+	void AdjustTrajectoryBasedOnDeviation()
+	{
+		Vector2 newTarget;
+		cerr << "angle of movement: " << ComputeAngleOfMovement() << endl;
+		if (ComputeAngleOfMovement() > K_ALIGNED_ANGLE)
+		{
+			Vector2 previousCheckpoint = checkpoints[currentCheckpointIndex - 1].position;
+			Vector2 nextCheckpoint = checkpoints[currentCheckpointIndex].position;
+
+			Vector2 currentPath = nextCheckpoint - previousCheckpoint;
+
+			Vector2 unitCurrentpath = currentPath.GetNormalized();
+			float distanceToNextCheckpoint = position.GetDistance(nextCheckpoint);
+			unitCurrentpath = unitCurrentpath * (distanceToNextCheckpoint / 2) + nextCheckpoint;
+			newTarget = unitCurrentpath;
+		}
+		else
+		{
+			newTarget = checkpoints[currentCheckpointIndex].position;
+		}
+		destinationX = newTarget.x;
+		destinationY = newTarget.y;
+	}
+
 	void UpdateThrust()
 	{
 		if (!AlignedToNextCheckpoint())
 		{
+			//Rotation speed?
 			thrust = 50;
 		}
 		else
@@ -333,6 +406,7 @@ public:
 			UpdateFirstLap();
 		}
 
+		AdjustTrajectoryBasedOnDeviation();
 		UpdateState();
 		TryBoost();
 		PrintCurrentChoice();
@@ -342,6 +416,7 @@ public:
 int main()
 {
 	Solution solution;
+
 	// game loop
 	while (1) {
 		float x;

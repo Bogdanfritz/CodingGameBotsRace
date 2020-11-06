@@ -164,6 +164,7 @@ struct SpeedBoost
 
 class Solution
 {
+	int K_BOOST_COUNT = 1;
 	int K_STEEP_ANGLE = 90;
 	int K_ALIGNED_ANGLE = 10;
 	float K_BRAKE_FROM_DISTANCE = 1000;
@@ -177,6 +178,7 @@ class Solution
 	int maxDistanceCheckpointIndex = 0;
 
 	vector<Checkpoint> checkpoints;
+	vector<Vector2> podPositions;
 	int currentCheckpointIndex = -1;
 
 	bool firstLapFinished = false;
@@ -250,6 +252,7 @@ class Solution
 			}
 		}
 	}
+
 	int FindCheckpoint(const Vector2& newCheckpoint)
 	{
 		//liniar approach for now
@@ -267,7 +270,7 @@ class Solution
 	{
 		UpdateDataBetweenCheckpoints();
 		speedBoost.TryAllowBoost();
-		firstLapUpdateDone = false;
+		firstLapUpdateDone = true;
 	}
 
 	void TryBoost()
@@ -282,12 +285,12 @@ class Solution
 
 	bool FacingTowardsCheckpoint()
 	{
-		return nextCheckpointAngle < K_STEEP_ANGLE&& nextCheckpointAngle > -K_STEEP_ANGLE;
+		return nextCheckpointAngle < K_STEEP_ANGLE && nextCheckpointAngle > -K_STEEP_ANGLE;
 	}
 
 	bool AlignedToNextCheckpoint()
 	{
-		return nextCheckpointAngle < K_ALIGNED_ANGLE&& nextCheckpointAngle > -K_ALIGNED_ANGLE;
+		return nextCheckpointAngle < K_ALIGNED_ANGLE && nextCheckpointAngle > -K_ALIGNED_ANGLE;
 	}
 
 	bool ShouldBrake()
@@ -304,61 +307,6 @@ class Solution
 	bool ShouldThrust()
 	{
 		return FacingTowardsCheckpoint();
-	}
-
-	void ChanceState(PodState newState)
-	{
-		state = newState;
-		switch (state)
-		{
-		case PodState::Thrusting:
-		{
-			UpdateThrust();
-			break;
-		}
-		case PodState::Braking:
-		{
-			UpdateBraking();
-			break;
-		}
-		}
-	}
-
-	float ComputeAngleOfMovement()
-	{
-		float angle = 0;
-		if (checkpoints.size() > 1)
-		{
-			Vector2 previousCheckpoint = checkpoints[currentCheckpointIndex - 1].position;
-			Vector2 nextCheckpoint = checkpoints[currentCheckpointIndex].position;
-			Vector2 currentPath = previousCheckpoint - nextCheckpoint;
-			angle = position.GetAngle(currentPath);
-		}
-		return angle;
-	}
-
-	void AdjustTrajectoryBasedOnDeviation()
-	{
-		Vector2 newTarget;
-		if (ComputeAngleOfMovement() > K_ALIGNED_ANGLE)
-		{
-			size_t prevIndex = (currentCheckpointIndex == 0) ? checkpoints.size() - 1 : currentCheckpointIndex - 1;
-			Vector2 previousCheckpoint = checkpoints[prevIndex].position;
-			Vector2 nextCheckpoint = checkpoints[currentCheckpointIndex].position;
-
-			Vector2 currentPath = nextCheckpoint - previousCheckpoint;
-
-			Vector2 unitCurrentpath = currentPath.GetNormalized();
-			float distanceToNextCheckpoint = position.GetDistance(nextCheckpoint);
-			float distanceBetweenCheckpoints = previousCheckpoint.GetDistance(nextCheckpoint);
-			unitCurrentpath = unitCurrentpath * (min(distanceBetweenCheckpoints / 2, distanceToNextCheckpoint / 2)) + nextCheckpoint;
-			newTarget = unitCurrentpath;
-		}
-		else
-		{
-			newTarget = checkpoints[currentCheckpointIndex].position;
-		}
-		destination = newTarget;
 	}
 
 	void UpdateThrust()
@@ -379,6 +327,60 @@ class Solution
 		thrust = 0;
 	}
 
+	void ChangeState(PodState newState)
+	{
+		state = newState;
+		switch (state)
+		{
+		case PodState::Thrusting:
+		{
+			UpdateThrust();
+			break;
+		}
+		case PodState::Braking:
+		{
+			UpdateBraking();
+			break;
+		}
+		}
+	}
+
+	float GetAngleToNextCheckpoint()
+	{
+		float angle = 0;
+		if (checkpoints.size() > 1)
+		{
+			Vector2 previousCheckpoint = checkpoints[currentCheckpointIndex - 1].position;
+			Vector2 nextCheckpoint = checkpoints[currentCheckpointIndex].position;
+			Vector2 currentPath = previousCheckpoint - nextCheckpoint;
+			angle = position.GetAngle(currentPath);
+		}
+		return angle;
+	}
+
+	void AdjustTrajectory()
+	{
+		Vector2 newTarget;
+		if (GetAngleToNextCheckpoint() > K_ALIGNED_ANGLE)
+		{
+			size_t prevIndex = (currentCheckpointIndex == 0) ? checkpoints.size() - 1 : currentCheckpointIndex - 1;
+			Vector2 previousCheckpoint = checkpoints[prevIndex].position;
+			Vector2 nextCheckpoint = checkpoints[currentCheckpointIndex].position;
+			Vector2 currentPath = nextCheckpoint - previousCheckpoint;
+
+			Vector2 pathUnitVector = currentPath.GetNormalized();
+			float distanceToNextCheckpoint = position.GetDistance(nextCheckpoint);
+			float distanceBetweenCheckpoints = previousCheckpoint.GetDistance(nextCheckpoint);
+			pathUnitVector = pathUnitVector * (min(distanceBetweenCheckpoints / 2, distanceToNextCheckpoint / 2)) + nextCheckpoint;
+			newTarget = pathUnitVector;
+		}
+		else
+		{
+			newTarget = checkpoints[currentCheckpointIndex].position;
+		}
+		destination = newTarget;
+	}
+
 	void UpdateState()
 	{
 		switch (state)
@@ -387,7 +389,7 @@ class Solution
 		{
 			if (ShouldBrake())
 			{
-				ChanceState(PodState::Braking);
+				ChangeState(PodState::Braking);
 			}
 			else
 			{
@@ -399,7 +401,7 @@ class Solution
 		{
 			if (ShouldThrust())
 			{
-				ChanceState(PodState::Thrusting);
+				ChangeState(PodState::Thrusting);
 			}
 			break;
 		}
@@ -408,15 +410,18 @@ class Solution
 
 public:
 
-	Solution() : position(0, 0) { speedBoost.count = 1; }
+	Solution() : position(0, 0) { speedBoost.count = K_BOOST_COUNT; }
 
 	void UpdateData(float x, float y, float targetX, float targetY, int distanceToTarget, int angleToTarget)
 	{
 		position.SetPosition(x, y);
+		podPositions.push_back(position);
+
 		nextCheckpointAngle = angleToTarget;
 		distanceToNextCheckpoint = distanceToTarget;
 		CheckNextCheckpoint(targetX, targetY);
 	}
+
 	void UpdateLogic()
 	{
 		if (firstLapFinished && !firstLapUpdateDone)
@@ -424,7 +429,7 @@ public:
 			UpdateFirstLap();
 		}
 
-		AdjustTrajectoryBasedOnDeviation();
+		AdjustTrajectory();
 		UpdateState();
 		TryBoost();
 		PrintCurrentChoice();

@@ -12,6 +12,14 @@ constexpr T pi = T(3.1415926535897932385);
 
 const static float RAD2DEGREE = 180 / pi<float>;
 
+enum class TurnType
+{
+	Invalid,
+	RightTurn,
+	LeftTurn,
+	UTurn,
+};
+
 enum class PodState
 {
 	Thrusting,
@@ -43,6 +51,12 @@ public:
 	float DotProduct(const Vector2& other) const
 	{
 		return x * other.x + y * other.y;
+	}
+
+	int PositionSign(const Vector2& other) const
+	{
+		int crossProduct = other.x * y - other.y * x;
+		return crossProduct > 0 ? 1 : -1;
 	}
 
 	float Magnitude() const
@@ -127,13 +141,23 @@ public:
 	float GetY() const { return y; }
 };
 
-struct Checkpoint
+class Checkpoint
 {
+	const int K_UTURN_MAX_ANGLE = 15;
 	Vector2 position;
 	float distanceToNext = 0;
 	int turnAngle = 0;
+	int turnSign = 0;
+	TurnType turnType;
+public:
+	Vector2 GetPosition() { return position; }
+	void SetPosition(Vector2 pos) { position = pos; }
 
-	Checkpoint(const Vector2& newPos) : position(newPos), distanceToNext(0), turnAngle(0) {}
+	float GetDistanceToNext() { return distanceToNext; }
+	int GetTurnAngle() { return turnAngle; }
+	TurnType GetTurnType() { return turnType; }
+
+	Checkpoint(const Vector2& newPos) : position(newPos), distanceToNext(0), turnAngle(0), turnType(TurnType::Invalid) {}
 
 	void SetDistanceToNext(const Vector2& newPosition)
 	{
@@ -143,8 +167,47 @@ struct Checkpoint
 	void SetTurnAngle(const Vector2& previousCheckpoint, const Vector2& nextCheckpoint)
 	{
 		Vector2 prev = previousCheckpoint - position;
-		Vector2 next = position - nextCheckpoint;
+		Vector2 next = nextCheckpoint - position;
 		turnAngle = prev.GetAngle(next);
+		turnSign = next.PositionSign(prev);
+	}
+
+	void SetTurnType(const Vector2& previousCheckpoint, const Vector2& nextCheckpoint)
+	{
+		if (turnAngle < K_UTURN_MAX_ANGLE || K_UTURN_MAX_ANGLE > 180 - K_UTURN_MAX_ANGLE)
+		{
+			turnType = TurnType::UTurn;
+		}
+		else if (turnSign > 0)
+		{
+			turnType = TurnType::LeftTurn;
+		}
+		else
+		{
+			turnType = TurnType::RightTurn;
+		}
+	}
+
+	void CerrPrint()
+	{
+		cerr << "turn angle: " << turnAngle << " turnType: ";
+		if (turnType == TurnType::UTurn)
+		{
+			cerr << "UTurn";
+		}
+		else if (turnType == TurnType::LeftTurn)
+		{
+			cerr << "Left turn";
+		}
+		else if (turnType == TurnType::RightTurn)
+		{
+			cerr << "Right turn";
+		}
+		else
+		{
+			cerr << "Error. Print requested before track data has been computed.";
+		}
+		cerr << endl;
 	}
 };
 
@@ -176,13 +239,16 @@ class Solution
 	float K_BRAKE_FROM_DISTANCE = 1000;
 	int K_COLLISION_FRAMES = 3;
 	int K_SHIELD_RADIUS = 400;
+	int K_MAX_THRUST = 100;
 
 	Vector2 position;
 	Vector2 enemyPosition;
 	Vector2 destination;
 	int thrust = 0;
+	int suggestedThrust = K_MAX_THRUST;
 	int nextCheckpointAngle = 0;
 	int distanceToNextCheckpoint = 0;
+	float angleToCurrentTarget = 0;
 
 	int maxDistanceCheckpointIndex = 0;
 
@@ -219,15 +285,19 @@ class Solution
 		for (size_t index = 0; index < checkpointsCount; index++)
 		{
 			size_t nextIndex = (index == (checkpointsCount - 1)) ? 0 : index + 1;
-			checkpoints[index].SetDistanceToNext(checkpoints[nextIndex].position);
-
-			if (checkpoints[index].distanceToNext > checkpoints[maxDistanceCheckpointIndex].distanceToNext)
+			checkpoints[index].SetDistanceToNext(checkpoints[nextIndex].GetPosition());
+			if (checkpoints[index].GetDistanceToNext() > checkpoints[maxDistanceCheckpointIndex].GetDistanceToNext())
 			{
 				maxDistanceCheckpointIndex = index;
 			}
 
 			size_t prevIndex = (index == 0) ? checkpointsCount - 1 : index - 1;
-			checkpoints[index].SetTurnAngle(checkpoints[prevIndex].position, checkpoints[nextIndex].position);
+			checkpoints[index].SetTurnAngle(checkpoints[prevIndex].GetPosition(), checkpoints[nextIndex].GetPosition());
+			checkpoints[index].SetTurnType(checkpoints[prevIndex].GetPosition(), checkpoints[nextIndex].GetPosition());
+
+			cerr << "index " << index << " ";
+			checkpoints[index].CerrPrint();
+
 		}
 	}
 
@@ -247,7 +317,7 @@ class Solution
 		}
 		Vector2 checkpointPosition = Vector2(x, y);
 
-		if (checkpointPosition != checkpoints[currentCheckpointIndex].position)
+		if (checkpointPosition != checkpoints[currentCheckpointIndex].GetPosition())
 		{
 			int checkpointIndex = FindCheckpoint(checkpointPosition);
 			if (checkpointIndex == -1)
@@ -267,7 +337,7 @@ class Solution
 		//liniar approach for now
 		for (int index = 0; index < checkpoints.size(); index++)
 		{
-			if (checkpoints[index].position == newCheckpoint)
+			if (checkpoints[index].GetPosition() == newCheckpoint)
 			{
 				return index;
 			}
@@ -284,7 +354,8 @@ class Solution
 
 	void TryBoost()
 	{
-		if (AlignedToNextCheckpoint() && speedBoost.canUseBoost && currentCheckpointIndex == maxDistanceCheckpointIndex)
+		int prevIndex = (currentCheckpointIndex == 0) ? checkpoints.size() - 1 : currentCheckpointIndex - 1; // check against prev index because my checkpoints indices start at 1 instead of start line
+		if (AlignedToNextCheckpoint() && speedBoost.canUseBoost && prevIndex == maxDistanceCheckpointIndex)
 		{
 			speedBoost.count--;
 			speedBoost.canUseBoost = speedBoost.count > 0;
@@ -302,15 +373,15 @@ class Solution
 		return nextCheckpointAngle < K_ALIGNED_ANGLE&& nextCheckpointAngle > -K_ALIGNED_ANGLE;
 	}
 
+	bool SteepAngleToTarget()
+	{
+		return angleToCurrentTarget > K_STEEP_ANGLE || angleToCurrentTarget < -K_STEEP_ANGLE;
+	}
+
 	bool ShouldBrake()
 	{
 		bool facingTowardsCheckpoint = FacingTowardsCheckpoint();
 		return !facingTowardsCheckpoint;
-	}
-
-	bool IsInBrakeDistanceToCheckpoint()
-	{
-		return distanceToNextCheckpoint < K_BRAKE_FROM_DISTANCE;
 	}
 
 	bool ShouldThrust()
@@ -320,15 +391,7 @@ class Solution
 
 	void UpdateThrust()
 	{
-		if (!AlignedToNextCheckpoint())
-		{
-			//Rotation speed?
-			thrust = 100; // for now keep it full throttle
-		}
-		else
-		{
-			thrust = 100;
-		}
+		thrust = suggestedThrust;
 	}
 
 	void UpdateBraking()
@@ -386,9 +449,9 @@ class Solution
 		float angle = 0;
 		if (checkpoints.size() > 1)
 		{
-			Vector2 previousCheckpoint = checkpoints[currentCheckpointIndex - 1].position;
-			Vector2 nextCheckpoint = checkpoints[currentCheckpointIndex].position;
-			Vector2 currentPath = previousCheckpoint - nextCheckpoint;
+			Vector2 previousCheckpoint = checkpoints[currentCheckpointIndex - 1].GetPosition();
+			Vector2 nextCheckpoint = checkpoints[currentCheckpointIndex].GetPosition();
+			Vector2 currentPath = nextCheckpoint - previousCheckpoint;
 			angle = position.GetAngle(currentPath);
 		}
 		return angle;
@@ -397,11 +460,13 @@ class Solution
 	void AdjustTrajectory()
 	{
 		Vector2 newTarget;
-		if (GetAngleToNextCheckpoint() > K_ALIGNED_ANGLE)
+		angleToCurrentTarget = GetAngleToNextCheckpoint();
+		cerr << "angle to target: " << nextCheckpointAngle << ". movement angle : " << angleToCurrentTarget << endl;
+		if (angleToCurrentTarget > K_ALIGNED_ANGLE)
 		{
 			size_t prevIndex = (currentCheckpointIndex == 0) ? checkpoints.size() - 1 : currentCheckpointIndex - 1;
-			Vector2 previousCheckpoint = checkpoints[prevIndex].position;
-			Vector2 nextCheckpoint = checkpoints[currentCheckpointIndex].position;
+			Vector2 previousCheckpoint = checkpoints[prevIndex].GetPosition();
+			Vector2 nextCheckpoint = checkpoints[currentCheckpointIndex].GetPosition();
 			Vector2 currentPath = nextCheckpoint - previousCheckpoint;
 
 			Vector2 pathUnitVector = currentPath.GetNormalized();
@@ -409,10 +474,20 @@ class Solution
 			float distanceBetweenCheckpoints = previousCheckpoint.GetDistance(nextCheckpoint);
 			pathUnitVector = pathUnitVector * (min(distanceBetweenCheckpoints / 2, distanceToNextCheckpoint / 2)) + nextCheckpoint;
 			newTarget = pathUnitVector;
+
+			if (SteepAngleToTarget() && distanceToNextCheckpoint < distanceBetweenCheckpoints / 2)
+			{
+				suggestedThrust = K_MAX_THRUST / 2;
+			}
+			else
+			{
+				suggestedThrust = K_MAX_THRUST;
+			}
 		}
 		else
 		{
-			newTarget = checkpoints[currentCheckpointIndex].position;
+			newTarget = checkpoints[currentCheckpointIndex].GetPosition();
+			suggestedThrust = K_MAX_THRUST;
 		}
 		destination = newTarget;
 	}
@@ -432,7 +507,7 @@ class Solution
 		bool collisionPossible = false;
 
 		Vector2 directionToDestination = (destination - position).GetNormalized();
-		Vector2 presumedEnemyDirection = (checkpoints[currentCheckpointIndex].position - enemyPosition).GetNormalized();
+		Vector2 presumedEnemyDirection = (checkpoints[currentCheckpointIndex].GetPosition() - enemyPosition).GetNormalized();
 
 		for (int i = 1; i <= K_COLLISION_FRAMES; ++i)
 		{
@@ -463,6 +538,7 @@ public:
 		nextCheckpointAngle = angleToTarget;
 		distanceToNextCheckpoint = distanceToTarget;
 		CheckNextCheckpoint(targetX, targetY);
+
 	}
 
 	void UpdateLogic(double deltaTime)
@@ -471,7 +547,7 @@ public:
 		{
 			UpdateFirstLap();
 		}
-		CouldCollideWithEnemy(deltaTime);
+
 		AdjustTrajectory();
 		UpdateState();
 		TryBoost();

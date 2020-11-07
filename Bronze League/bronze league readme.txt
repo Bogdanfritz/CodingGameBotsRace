@@ -75,4 +75,18 @@ Hence... I'm presuming we're always going in a straight line, which we are not. 
  It is not working and I consider I have used enough time for now trying to check collisions and predict my next positions.
 
  So for now I will focus on trying to smooth out racing and ignore the collisions.
- 
+
+ ------
+
+ First part - updating my curent Algorithm
+ Second part - possibly implement a racing strategy
+
+ First part:
+     If the movement angle is higher than 90 degrees, slow down for a few frames.
+     I am now slowing at half speed when i pass the midpoint towards the next checkpoint and it slows down a bit but it's not enough to win.
+Reached highest rank 14 824 / 13,643
+
+Second part:
+I have the angle of the turn calculated from a previous commit. But it doesn't know wether it's a left or right turn. I would like to determine that first.
+Done. I learned this is what cross product is used for.
+Elapsed time - 2 hours of trial and error then research on how to actally rotate vectors. I'm glad i got to find this information out. Now to use it..

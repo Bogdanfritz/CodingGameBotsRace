@@ -169,8 +169,11 @@ class Solution
 	int K_STEEP_ANGLE = 90;
 	int K_ALIGNED_ANGLE = 10;
 	float K_BRAKE_FROM_DISTANCE = 1000;
+	int K_COLLISION_FRAMES = 3;
+	int K_SHIELD_RADIUS = 400;
 
 	Vector2 position;
+	Vector2 enemyPosition;
 	Vector2 destination;
 	int thrust = 0;
 	int nextCheckpointAngle = 0;
@@ -286,12 +289,12 @@ class Solution
 
 	bool FacingTowardsCheckpoint()
 	{
-		return nextCheckpointAngle < K_STEEP_ANGLE && nextCheckpointAngle > -K_STEEP_ANGLE;
+		return nextCheckpointAngle < K_STEEP_ANGLE&& nextCheckpointAngle > -K_STEEP_ANGLE;
 	}
 
 	bool AlignedToNextCheckpoint()
 	{
-		return nextCheckpointAngle < K_ALIGNED_ANGLE && nextCheckpointAngle > -K_ALIGNED_ANGLE;
+		return nextCheckpointAngle < K_ALIGNED_ANGLE&& nextCheckpointAngle > -K_ALIGNED_ANGLE;
 	}
 
 	bool ShouldBrake()
@@ -409,35 +412,57 @@ class Solution
 		destination = newTarget;
 	}
 
-	void ComputeSpeedVector(double deltaTime)
+	bool CheckColission(float distance)
 	{
+		bool collision = false;
+		if (distance <= K_SHIELD_RADIUS * 2)
+		{
+			collision = true;
+		}
+		return collision;
+	}
+
+	bool CouldCollideWithEnemy(double deltaTime)
+	{
+		bool collisionPossible = false;
 		size_t loggedPositionsCount = podPositions.size();
 		if (loggedPositionsCount < 3)
 		{
-			return;
+			return false;
 		}
 		float deltaDistance = podPositions[loggedPositionsCount - 2].GetDistance(position);
 
-		Vector2 deltaPositionNormalized = (position - podPositions[loggedPositionsCount - 2]).GetNormalized();
+		Vector2 movementDirection = (destination - position).GetNormalized();
 
-		// lacking the sign of this speed vector :/
+		Vector2 presumedEnemyDirection = (checkpoints[currentCheckpointIndex].position - enemyPosition).GetNormalized();
 
-		Vector2 speed = deltaPositionNormalized * thrust;
-		cerr << "speed: " << speed.GetX() << "," << speed.GetY() << endl;
-		Vector2 expectedCurrentPosition = position + speed;
-		cerr << "current position " << position.GetX() << "," << position.GetY() << endl;
-		cerr << "expected position: " << expectedCurrentPosition.GetX() << "," << expectedCurrentPosition.GetY() << endl;
+		for (int i = 1; i <= K_COLLISION_FRAMES; ++i)
+		{
+			Vector2 newPos = movementDirection * i * thrust + position;
+			Vector2 newEnemyPos = presumedEnemyDirection * i * thrust + enemyPosition; // presume enemy is going at the same speed
+			cerr << newPos.GetX() << "," << newPos.GetY() << " " << newEnemyPos.GetX() << "," << newEnemyPos.GetY() << " ";
+			float distanceToEnemy = newPos.GetDistance(newEnemyPos);
+			collisionPossible = CheckColission(distanceToEnemy);
+			if (collisionPossible)
+			{
+				break;
+			}
+			cerr << collisionPossible << endl;
+		}
 
+		return collisionPossible;
 	}
 
 public:
 
 	Solution() : position(0, 0) { speedBoost.count = K_BOOST_COUNT; }
 
-	void UpdateData(float x, float y, float targetX, float targetY, int distanceToTarget, int angleToTarget)
+	void UpdateData(float x, float y, float targetX, float targetY, int distanceToTarget, int angleToTarget, float enemyX, float enemyY)
 	{
 		position.SetPosition(x, y);
 		podPositions.push_back(position);
+
+		enemyPosition.SetPosition(enemyX, enemyY);
 
 		nextCheckpointAngle = angleToTarget;
 		distanceToNextCheckpoint = distanceToTarget;
@@ -450,7 +475,7 @@ public:
 		{
 			UpdateFirstLap();
 		}
-		ComputeSpeedVector(deltaTime);
+		CouldCollideWithEnemy(deltaTime);
 		AdjustTrajectory();
 		UpdateState();
 		TryBoost();
@@ -476,8 +501,8 @@ int main()
 		int nextCheckpointDist; // distance to the next checkpoint
 		int nextCheckpointAngle; // angle between your pod orientation and the direction of the next checkpoint
 		cin >> x >> y >> nextCheckpointX >> nextCheckpointY >> nextCheckpointDist >> nextCheckpointAngle; cin.ignore();
-		int opponentX;
-		int opponentY;
+		float opponentX;
+		float opponentY;
 		cin >> opponentX >> opponentY; cin.ignore();
 
 		// Write an action using cout. DON'T FORGET THE "<< endl"
@@ -488,7 +513,7 @@ int main()
 		// followed by the power (0 <= thrust <= 100)
 		// i.e.: "x y thrust"
 
-		solution.UpdateData(x, y, nextCheckpointX, nextCheckpointY, nextCheckpointDist, nextCheckpointAngle);
+		solution.UpdateData(x, y, nextCheckpointX, nextCheckpointY, nextCheckpointDist, nextCheckpointAngle, opponentX, opponentY);
 		solution.UpdateLogic(deltaTIme);
 	}
 }

@@ -69,3 +69,10 @@ Having the direction of movement of the enemy form his last two positions, i can
 he's aiming for my next checkpoint and check if our paths would intersect by projecting several
 points ahead. It's not the best solution but it's the best i could come up with with my experience.
 
+I am making presumptions that the enemy is aiming for the same checkpoint as I am. But my collision prediction does not take into account the current movement vector, only the direction between the pod and the destination.
+Hence... I'm presuming we're always going in a straight line, which we are not. So this idea is not properly defined at the moment either.
+
+ It is not working and I consider I have used enough time for now trying to check collisions and predict my next positions.
+
+ So for now I will focus on trying to smooth out racing and ignore the collisions.
+ 

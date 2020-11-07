@@ -90,3 +90,17 @@ Second part:
 I have the angle of the turn calculated from a previous commit. But it doesn't know wether it's a left or right turn. I would like to determine that first.
 Done. I learned this is what cross product is used for.
 Elapsed time - 2 hours of trial and error then research on how to actally rotate vectors. I'm glad i got to find this information out. Now to use it..
+
+The racing strategy i found was to determine three points on the track between each point:
+Apex - a point inside the checkpoint after which i start aiming towards the next checkpoint
+Turn point - the point where i start turning toward the apex
+Brake point - the point where i start braking to prepare for the turn
+
+This strategy will take into consideration the angle of the turn and wether it's a left or right turn. And it will only apply after the first lap.
+I decided the apex will be at about 3/4 * radus from the checkpoint middle, at the angle of the turn /2 - to allow for maximum speed
+Turn point will be at 10% distance from the checkpoint radius on the path to the previous checkpoint
+Brake point will be at the halfway point between checkpoints 
+These are for the first iteration. I will have to adjust the turn point and brake point to depend on the angle as well. - Probably 10 degrees ? maybe 15. will trial n error
+
+These are three points. Since my ship is moving, i'll probably need them to have a radius of at least 100 units.
+Elapsed time - 1 hours

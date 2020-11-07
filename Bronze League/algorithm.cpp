@@ -7,6 +7,21 @@
 
 using namespace std;
 
+
+const int K_CHECKPOINT_RADIUS = 600;
+const float K_APEX_DISTANCE = 0.75;
+const int K_BOOST_COUNT = 1;
+const int K_STEEP_ANGLE = 90;
+const int K_ALIGNED_ANGLE = 10;
+
+const int K_MAX_THRUST = 100;
+
+const int K_COLLISION_FRAMES = 3;
+const int K_SHIELD_RADIUS = 400;
+
+const int K_UTURN_MAX_ANGLE = 15;
+const float K_BRAKE_FROM_DISTANCE = 1000;
+
 template<typename T>
 constexpr T pi = T(3.1415926535897932385);
 
@@ -36,9 +51,19 @@ public:
 	Vector2(float newX, float newY) : x(newX), y(newY) {}
 	Vector2(const Vector2& pos) : x(pos.x), y(pos.y) {}
 
-	void CerrPrint()
+	void CerrPrint() const
 	{
 		cerr << x << " " << y << endl;
+	}
+
+	void RotateByAngle(float angle)
+	{
+		float sine = sin(angle);
+		float cosine = cos(angle);
+		float newX = cosine * x - sine * y;
+		float newY = sine * x - cosine * y;
+		x = newX;
+		y = newY;
 	}
 
 	float GetDistance(const Vector2& other) const
@@ -64,7 +89,7 @@ public:
 		return sqrtf(x * x + y * y);
 	}
 
-	Vector2 Midpoint(const Vector2& other)
+	Vector2 Midpoint(const Vector2& other) const
 	{
 		Vector2 midpoint = ((*this + other) / 2);
 		return midpoint;
@@ -116,12 +141,12 @@ public:
 		return Vector2(other.x - x, other.y - y);
 	}
 
-	Vector2 operator /(float scalar)
+	Vector2 operator /(float scalar) const
 	{
 		return Vector2(x / scalar, y / scalar);
 	}
 
-	Vector2 operator *(float scalar)
+	Vector2 operator *(float scalar) const
 	{
 		return Vector2(x * scalar, y * scalar);
 	}
@@ -141,40 +166,30 @@ public:
 	float GetY() const { return y; }
 };
 
-class Checkpoint
+class RaceData
 {
-	const int K_UTURN_MAX_ANGLE = 15;
-	Vector2 position;
-	float distanceToNext = 0;
-	int turnAngle = 0;
-	int turnSign = 0;
+	int turnAngle;
 	TurnType turnType;
+	Vector2 brakePoint;
+	Vector2 turnPoint;
+	Vector2 apex;
 public:
-	Vector2 GetPosition() { return position; }
-	void SetPosition(Vector2 pos) { position = pos; }
 
-	float GetDistanceToNext() { return distanceToNext; }
 	int GetTurnAngle() { return turnAngle; }
 	TurnType GetTurnType() { return turnType; }
+	Vector2 GetTurnPoint() { return turnPoint; }
+	Vector2 GetBrakePoint() { return brakePoint; }
+	Vector2 GetApex() { return apex; }
 
-	Checkpoint(const Vector2& newPos) : position(newPos), distanceToNext(0), turnAngle(0), turnType(TurnType::Invalid) {}
-
-	void SetDistanceToNext(const Vector2& newPosition)
+	void ComputeTurnAngle(const Vector2& previousPath, const Vector2& nextPath)
 	{
-		distanceToNext = position.GetDistance(newPosition);
+		turnAngle = previousPath.GetAngle(nextPath);
 	}
 
-	void SetTurnAngle(const Vector2& previousCheckpoint, const Vector2& nextCheckpoint)
+	void ComputeTurnType(const Vector2& previousPath, const Vector2& nextCheckpoint)
 	{
-		Vector2 prev = previousCheckpoint - position;
-		Vector2 next = nextCheckpoint - position;
-		turnAngle = prev.GetAngle(next);
-		turnSign = next.PositionSign(prev);
-	}
-
-	void SetTurnType(const Vector2& previousCheckpoint, const Vector2& nextCheckpoint)
-	{
-		if (turnAngle < K_UTURN_MAX_ANGLE || K_UTURN_MAX_ANGLE > 180 - K_UTURN_MAX_ANGLE)
+		int turnSign = nextCheckpoint.PositionSign(previousPath);
+		if (turnAngle < K_UTURN_MAX_ANGLE || turnAngle > 180 - K_UTURN_MAX_ANGLE)
 		{
 			turnType = TurnType::UTurn;
 		}
@@ -188,18 +203,79 @@ public:
 		}
 	}
 
+	void ComputeApex(const Vector2& origin)
+	{
+		apex = Vector2(1, 1) * K_CHECKPOINT_RADIUS * K_APEX_DISTANCE;
+		apex.RotateByAngle(turnAngle / 2);
+		apex = apex + origin;
+	}
+
+	void ComputeBrakePoint(const Vector2& checkpointPosition, const Vector2& previousPoint)
+	{
+		//Todo apply angle
+		brakePoint = (previousPoint - checkpointPosition).GetNormalized() * checkpointPosition.GetDistance(previousPoint) * 0.5 - checkpointPosition; // Could have used midpoint but i might want to change this value later
+	}
+
+	void ComputeTurnPoint(const Vector2& checkpointPosition, const Vector2& previousPoint)
+	{
+		//Todo - apply angle
+		checkpointPosition.CerrPrint();
+		previousPoint.CerrPrint();
+		turnPoint = (previousPoint - checkpointPosition).GetNormalized() * checkpointPosition.GetDistance(previousPoint) * 0.35 - checkpointPosition;
+	}
+
+	void ComputeData(const Vector2& checkpointPosition, const Vector2& previousPoint, const Vector2& nextPoint)
+	{
+
+		Vector2 prev = previousPoint - checkpointPosition;
+		Vector2 next = nextPoint - checkpointPosition;
+		ComputeTurnAngle(prev, next);
+		ComputeTurnType(prev, next);
+		ComputeApex(checkpointPosition);
+		ComputeBrakePoint(checkpointPosition, previousPoint);
+		ComputeTurnPoint(checkpointPosition, previousPoint);
+	}
+};
+
+class Checkpoint
+{
+	Vector2 position;
+	float distanceToNext = 0;
+	int turnSign = 0;
+	RaceData raceData;
+public:
+	Vector2 GetPosition() { return position; }
+	void SetPosition(Vector2 pos) { position = pos; }
+
+	float GetDistanceToNext() { return distanceToNext; }
+	int GetTurnAngle() { return raceData.GetTurnAngle(); }
+	TurnType GetTurnType() { return raceData.GetTurnType(); }
+
+	Checkpoint(const Vector2& newPos) : position(newPos), distanceToNext(0) {}
+
+	void SetDistanceToNext(const Vector2& newPosition)
+	{
+		distanceToNext = position.GetDistance(newPosition);
+	}
+
+	void ComputeRaceData(const Vector2& previousCheckpoint, const Vector2& nextCheckpoint)
+	{
+		raceData.ComputeData(position, previousCheckpoint, nextCheckpoint);
+	}
+
 	void CerrPrint()
 	{
-		cerr << "turn angle: " << turnAngle << " turnType: ";
-		if (turnType == TurnType::UTurn)
+		/*
+		cerr << "turn angle: " << raceData.GetTurnAngle() << " turnType: ";
+		if (raceData.GetTurnType() == TurnType::UTurn)
 		{
 			cerr << "UTurn";
 		}
-		else if (turnType == TurnType::LeftTurn)
+		else if (raceData.GetTurnType() == TurnType::LeftTurn)
 		{
 			cerr << "Left turn";
 		}
-		else if (turnType == TurnType::RightTurn)
+		else if(raceData.GetTurnType() == TurnType::RightTurn)
 		{
 			cerr << "Right turn";
 		}
@@ -207,7 +283,10 @@ public:
 		{
 			cerr << "Error. Print requested before track data has been computed.";
 		}
-		cerr << endl;
+		cerr << endl;*/
+		cerr << " apex at: "; raceData.GetApex().CerrPrint();
+		cerr << " turnpoint at: "; raceData.GetTurnPoint().CerrPrint();
+		cerr << " brakepoint at: "; raceData.GetBrakePoint().CerrPrint();
 	}
 };
 
@@ -233,14 +312,6 @@ struct SpeedBoost
 
 class Solution
 {
-	int K_BOOST_COUNT = 1;
-	int K_STEEP_ANGLE = 90;
-	int K_ALIGNED_ANGLE = 10;
-	float K_BRAKE_FROM_DISTANCE = 1000;
-	int K_COLLISION_FRAMES = 3;
-	int K_SHIELD_RADIUS = 400;
-	int K_MAX_THRUST = 100;
-
 	Vector2 position;
 	Vector2 enemyPosition;
 	Vector2 destination;
@@ -292,12 +363,9 @@ class Solution
 			}
 
 			size_t prevIndex = (index == 0) ? checkpointsCount - 1 : index - 1;
-			checkpoints[index].SetTurnAngle(checkpoints[prevIndex].GetPosition(), checkpoints[nextIndex].GetPosition());
-			checkpoints[index].SetTurnType(checkpoints[prevIndex].GetPosition(), checkpoints[nextIndex].GetPosition());
+			checkpoints[index].ComputeRaceData(checkpoints[prevIndex].GetPosition(), checkpoints[nextIndex].GetPosition());
 
-			cerr << "index " << index << " ";
 			checkpoints[index].CerrPrint();
-
 		}
 	}
 
@@ -489,6 +557,14 @@ class Solution
 			newTarget = checkpoints[currentCheckpointIndex].GetPosition();
 			suggestedThrust = K_MAX_THRUST;
 		}
+		destination = newTarget;
+	}
+
+	void AdjustTrajectoryRace()
+	{
+		Vector2 newTarget;
+		angleToCurrentTarget = GetAngleToNextCheckpoint();
+
 		destination = newTarget;
 	}
 

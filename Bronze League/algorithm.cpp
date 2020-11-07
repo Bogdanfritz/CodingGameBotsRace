@@ -28,6 +28,11 @@ public:
 	Vector2(float newX, float newY) : x(newX), y(newY) {}
 	Vector2(const Vector2& pos) : x(pos.x), y(pos.y) {}
 
+	void CerrPrint()
+	{
+		cerr << x << " " << y << endl;
+	}
+
 	float GetDistance(const Vector2& other) const
 	{
 		float diffX = x - other.x;
@@ -425,29 +430,20 @@ class Solution
 	bool CouldCollideWithEnemy(double deltaTime)
 	{
 		bool collisionPossible = false;
-		size_t loggedPositionsCount = podPositions.size();
-		if (loggedPositionsCount < 3)
-		{
-			return false;
-		}
-		float deltaDistance = podPositions[loggedPositionsCount - 2].GetDistance(position);
 
-		Vector2 movementDirection = (destination - position).GetNormalized();
-
+		Vector2 directionToDestination = (destination - position).GetNormalized();
 		Vector2 presumedEnemyDirection = (checkpoints[currentCheckpointIndex].position - enemyPosition).GetNormalized();
 
 		for (int i = 1; i <= K_COLLISION_FRAMES; ++i)
 		{
-			Vector2 newPos = movementDirection * i * thrust + position;
+			Vector2 newPos = directionToDestination * i * thrust + position;
 			Vector2 newEnemyPos = presumedEnemyDirection * i * thrust + enemyPosition; // presume enemy is going at the same speed
-			cerr << newPos.GetX() << "," << newPos.GetY() << " " << newEnemyPos.GetX() << "," << newEnemyPos.GetY() << " ";
 			float distanceToEnemy = newPos.GetDistance(newEnemyPos);
 			collisionPossible = CheckColission(distanceToEnemy);
 			if (collisionPossible)
 			{
 				break;
 			}
-			cerr << collisionPossible << endl;
 		}
 
 		return collisionPossible;

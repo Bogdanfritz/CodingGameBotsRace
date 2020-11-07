@@ -3,6 +3,7 @@
 #include <vector>
 #include <algorithm>
 #include <cmath>
+#include <chrono>
 
 using namespace std;
 
@@ -345,6 +346,33 @@ class Solution
 		}
 	}
 
+	void UpdateState()
+	{
+		switch (state)
+		{
+		case PodState::Thrusting:
+		{
+			if (ShouldBrake())
+			{
+				ChangeState(PodState::Braking);
+			}
+			else
+			{
+				UpdateThrust();
+			}
+			break;
+		}
+		case PodState::Braking:
+		{
+			if (ShouldThrust())
+			{
+				ChangeState(PodState::Thrusting);
+			}
+			break;
+		}
+		}
+	}
+
 	float GetAngleToNextCheckpoint()
 	{
 		float angle = 0;
@@ -381,31 +409,25 @@ class Solution
 		destination = newTarget;
 	}
 
-	void UpdateState()
+	void ComputeSpeedVector(double deltaTime)
 	{
-		switch (state)
+		size_t loggedPositionsCount = podPositions.size();
+		if (loggedPositionsCount < 3)
 		{
-		case PodState::Thrusting:
-		{
-			if (ShouldBrake())
-			{
-				ChangeState(PodState::Braking);
-			}
-			else
-			{
-				UpdateThrust();
-			}
-			break;
+			return;
 		}
-		case PodState::Braking:
-		{
-			if (ShouldThrust())
-			{
-				ChangeState(PodState::Thrusting);
-			}
-			break;
-		}
-		}
+		float deltaDistance = podPositions[loggedPositionsCount - 2].GetDistance(position);
+
+		Vector2 deltaPositionNormalized = (position - podPositions[loggedPositionsCount - 2]).GetNormalized();
+
+		// lacking the sign of this speed vector :/
+
+		Vector2 speed = deltaPositionNormalized * thrust;
+		cerr << "speed: " << speed.GetX() << "," << speed.GetY() << endl;
+		Vector2 expectedCurrentPosition = position + speed;
+		cerr << "current position " << position.GetX() << "," << position.GetY() << endl;
+		cerr << "expected position: " << expectedCurrentPosition.GetX() << "," << expectedCurrentPosition.GetY() << endl;
+
 	}
 
 public:
@@ -422,13 +444,13 @@ public:
 		CheckNextCheckpoint(targetX, targetY);
 	}
 
-	void UpdateLogic()
+	void UpdateLogic(double deltaTime)
 	{
 		if (firstLapFinished && !firstLapUpdateDone)
 		{
 			UpdateFirstLap();
 		}
-
+		ComputeSpeedVector(deltaTime);
 		AdjustTrajectory();
 		UpdateState();
 		TryBoost();
@@ -439,9 +461,14 @@ public:
 int main()
 {
 	Solution solution;
-
+	auto previousFrameTime = std::chrono::high_resolution_clock::now();
 	// game loop
 	while (1) {
+		auto frameTime = std::chrono::high_resolution_clock::now();
+		std::chrono::duration<double> elapsed = frameTime - previousFrameTime;
+		double deltaTIme = elapsed.count();
+		previousFrameTime = frameTime;
+
 		float x;
 		float y;
 		float nextCheckpointX; // x position of the next check point
@@ -462,6 +489,6 @@ int main()
 		// i.e.: "x y thrust"
 
 		solution.UpdateData(x, y, nextCheckpointX, nextCheckpointY, nextCheckpointDist, nextCheckpointAngle);
-		solution.UpdateLogic();
+		solution.UpdateLogic(deltaTIme);
 	}
 }

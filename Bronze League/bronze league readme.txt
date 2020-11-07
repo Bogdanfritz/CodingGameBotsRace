@@ -52,3 +52,20 @@ Will check it now. And yes. finally, a success!
 Aaaand it Works! Kind of. I managed to win one attempt in the test run for Bronze League. Will try several more to check for bugs then try out the arena.
 I still need to make some avoiding logic for enemies. Currently i'm loosing due to getting hit by enemies.
 Elapsed 1 hr 30
+
+I want to test if i can use my thrust to calculate my next position by using my previous logged position . It might not work because i need velocity and i think thrust is acceleration...
+Not sure means i want to test it and check against coding game's debug vaue of Speed.
+podPosition = deltaPosition * frameCount
+deltaPosition = (podPositions[podPositions.size() -2 ] - position).Normalised()
+
+pod speed vector might be the direction vector from my player to the destination * thrust. Late edit: * deltaTime
+But i'm off by a small margin of units and i'm not sure why.
+elapsed time 30 minutes 
+
+So the first idea is incorrect because i can't account for the inertia of my pod. I still want to find a way using this kind of formula to represent my path so i can check the enemy path, of whom i don't know the thrust
+So the thrust is the difference between the current position and the next position. Interesting.
+
+Having the direction of movement of the enemy form his last two positions, i can presume
+he's aiming for my next checkpoint and check if our paths would intersect by projecting several
+points ahead. It's not the best solution but it's the best i could come up with with my experience.
+

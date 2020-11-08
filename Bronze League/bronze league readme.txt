@@ -130,3 +130,5 @@ What i need to do next - adjust the angle of my target depending on the turn ang
 Once the first lap is finished, i'm now creating a set of two points on the previous and next path accordingly, on each checkpoint and use these new points as destinations
 It works right now, but it's not good enough to finish a race properly because they can be too close together.
 So i want to increase the angles a bit.
+
+Also update boost to work with adjusted checkpoints

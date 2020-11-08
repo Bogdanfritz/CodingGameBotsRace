@@ -513,15 +513,15 @@ class Solution
 			adjustedCheckpoints.push_back(nextDirection);
 
 		}
-		adjustedCheckpointIndex = 1;
 
-		/*if (checkpoints[0].GetTurnType() == TurnType::LeftTurn)
+		if (checkpoints[0].GetTurnType() == TurnType::LeftTurn)
 		{
 			adjustedCheckpointIndex = 0;
 		}
 		else
 		{
-		}*/
+			adjustedCheckpointIndex = 1;
+		}
 	}
 
 	void CleanDataRaceCache()
@@ -809,7 +809,6 @@ class Solution
 	void AdjustTrajectoryPointsOnPaths()
 	{
 		CheckAdjustedCheckpointReached();
-		Vector2 newTarget;
 		size_t prevIndex = (adjustedCheckpointIndex == 0) ? adjustedCheckpoints.size() - 1 : adjustedCheckpointIndex - 1;
 		angleToCurrentTarget = GetAngleWithPosition(prevIndex, adjustedCheckpointIndex);
 		float movementAngle = GetAngleWithDestination(prevIndex, adjustedCheckpointIndex);
@@ -820,36 +819,18 @@ class Solution
 		float distanceToNextCheckpoint = position.GetDistance(nextCheckpoint);
 		float distanceBetweenCheckpoints = previousCheckpoint.GetDistance(nextCheckpoint);
 
-		float zoneRadiusPlusExtra = K_CHECKPOINT_RADIUS + K_SHIELD_RADIUS * 2;
-
-		if (angleToCurrentTarget > K_ALIGNED_ANGLE && movementAngle > K_ALIGNED_ANGLE && distanceToNextCheckpoint > zoneRadiusPlusExtra)
+		float zoneRadiusPlusExtra = K_CHECKPOINT_RADIUS + K_SHIELD_RADIUS * 3;
+		//TODO: To clean up
+		
+		if (distanceToNextCheckpoint < zoneRadiusPlusExtra)
 		{
-			Vector2 pathUnitVector = currentPath.GetNormalized();
-			pathUnitVector = pathUnitVector * (min(distanceBetweenCheckpoints / 2, distanceToNextCheckpoint / 2)) + nextCheckpoint;
-			newTarget = pathUnitVector;
-
-			if ((SteepAngle(angleToCurrentTarget) || SteepAngle(movementAngle)) && distanceToNextCheckpoint < distanceBetweenCheckpoints / 2)
-			{
-				suggestedThrust = K_MAX_THRUST / 2;
-			}
-			else
-			{
-				suggestedThrust = K_MAX_THRUST;
-			}
+			suggestedThrust = K_MAX_THRUST / 2;
 		}
 		else
 		{
-			if (distanceToNextCheckpoint < zoneRadiusPlusExtra)
-			{
-				suggestedThrust = K_MAX_THRUST / 2;
-			}
-			else
-			{
-				suggestedThrust = K_MAX_THRUST;
-			}
-			newTarget = adjustedCheckpoints[adjustedCheckpointIndex].GetPosition();
+			suggestedThrust = K_MAX_THRUST;
 		}
-		destination = newTarget;
+		destination = adjustedCheckpoints[adjustedCheckpointIndex].GetPosition();
 	}
 
 	/* Not used

@@ -110,3 +110,18 @@ In a perfect scenario, my movement direction would be the same as the path direc
 
 So I think i should update the points dynamically, not statically once the first lap is done...
 But before that i made some improvements to the code.
+
+Now. 
+What i need to care about is the direction angle of my movement towards the points.
+I should check 
+     preivous checkpoint to brake point angle vs my own - brake point.
+     brake point - turnpoint vs my own - turn point
+     turnpoint - apex vs my own - apex
+For now will only check the angle and if it's too steep, i'll force it to the next one
+
+After 3 hours of work, it kinda works, but the results seem worse than my alignment strategy. So I will keep using that one and improve it with what i've learned from this strategy.
+
+2 more hours and the improvments don't work quite as well on the same test sample. but neither did my previous submit on the same test case.
+     
+1 hr later I've managed to get improvements by changing the steep angle to 45 which allows me to turn faster and also to adjust my path faster.
+What i need to do next - adjust the angle of my target depending on the turn angle so that i don't loose as much momentum when i pass checkpoints

@@ -104,3 +104,9 @@ These are for the first iteration. I will have to adjust the turn point and brak
 
 These are three points. Since my ship is moving, i'll probably need them to have a radius of at least 100 units.
 Elapsed time - 1 hours
+
+I implemented the logic for the stragey and have found that i did not take into account the angle between my pod and the points.
+In a perfect scenario, my movement direction would be the same as the path direction, but that's not the case most of the time.
+
+So I think i should update the points dynamically, not statically once the first lap is done...
+But before that i made some improvements to the code.

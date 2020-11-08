@@ -125,3 +125,8 @@ After 3 hours of work, it kinda works, but the results seem worse than my alignm
      
 1 hr later I've managed to get improvements by changing the steep angle to 45 which allows me to turn faster and also to adjust my path faster.
 What i need to do next - adjust the angle of my target depending on the turn angle so that i don't loose as much momentum when i pass checkpoints
+
+2 hrs work:
+Once the first lap is finished, i'm now creating a set of two points on the previous and next path accordingly, on each checkpoint and use these new points as destinations
+It works right now, but it's not good enough to finish a race properly because they can be too close together.
+So i want to increase the angles a bit.

@@ -132,3 +132,16 @@ It works right now, but it's not good enough to finish a race properly because t
 So i want to increase the angles a bit.
 
 Also update boost to work with adjusted checkpoints
+
+Back and forth!
+The base adjustment seems to work better still, so i'm focusing on it again. 
+I want to progresively slow down and progresively ramp up speed, so i loose some momentum but not all.
+
+Not sure if i don't know enough but i've been having the most issues because i don't have access to my pod orientation. If i did, i could calculate the angles just fine. 
+Since i don't, I had to check my direction towards the checkpoint through my movement direction and the direction to my target (if it's on the path, not the actual checkpoint).
+I would estimate about 10 hrs of work have been affected / slowed down by this simple lack of information. But in the end it's my lack of knowledge that's blocking me.
+
+1 hour elapsed
+I made some "improvements" to the code to slow and speed up gradually. But the results are... not impressive.
+I've checked my submits and my best results were a simpler version 2 days ago.
+So will recheck that one.

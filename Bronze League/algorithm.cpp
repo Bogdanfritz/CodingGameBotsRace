@@ -709,6 +709,23 @@ class Solution
 		return angle;
 	}
 
+	void SlowDown()
+	{
+		suggestedThrust = suggestedThrust / 2;
+		if (suggestedThrust < 25)
+		{
+			suggestedThrust = 25;
+		}
+	}
+	void SpeedUp()
+	{
+		suggestedThrust = suggestedThrust * 2;
+		if (suggestedThrust > 100)
+		{
+			suggestedThrust = 100;
+		}
+	}
+
 	void AdjustTrajectory()
 	{
 		Vector2 newTarget;
@@ -724,7 +741,7 @@ class Solution
 
 		float zoneRadiusPlusExtra = K_CHECKPOINT_RADIUS + K_SHIELD_RADIUS * 2;
 
-		if (angleToCurrentTarget > K_ALIGNED_ANGLE && movementAngle > K_ALIGNED_ANGLE && distanceToNextCheckpoint > zoneRadiusPlusExtra)
+		if ((!AlignedAngle(angleToCurrentTarget) && !AlignedAngle(movementAngle)) && distanceToNextCheckpoint > zoneRadiusPlusExtra)
 		{
 			Vector2 pathUnitVector = currentPath.GetNormalized();
 			pathUnitVector = pathUnitVector * (min(distanceBetweenCheckpoints / 2, distanceToNextCheckpoint / 2)) + nextCheckpoint;
@@ -732,22 +749,22 @@ class Solution
 
 			if ((SteepAngle(angleToCurrentTarget) || SteepAngle(movementAngle)) && distanceToNextCheckpoint < distanceBetweenCheckpoints / 2)
 			{
-				suggestedThrust = K_MAX_THRUST / 2;
+				SlowDown();
 			}
 			else
 			{
-				suggestedThrust = K_MAX_THRUST;
+				SpeedUp();
 			}
 		}
 		else
 		{
 			if (distanceToNextCheckpoint < zoneRadiusPlusExtra)
 			{
-				suggestedThrust = K_MAX_THRUST / 2;
+				SlowDown();
 			}
 			else
 			{
-				suggestedThrust = K_MAX_THRUST;
+				SpeedUp();
 			}
 			newTarget = checkpoints[currentCheckpointIndex].GetPosition();
 		}
@@ -819,9 +836,9 @@ class Solution
 		float distanceToNextCheckpoint = position.GetDistance(nextCheckpoint);
 		float distanceBetweenCheckpoints = previousCheckpoint.GetDistance(nextCheckpoint);
 
-		float zoneRadiusPlusExtra = K_CHECKPOINT_RADIUS + K_SHIELD_RADIUS * 3;
-		//TODO: To clean up
-		
+		float zoneRadiusPlusExtra = K_CHECKPOINT_RADIUS + K_SHIELD_RADIUS * 2;
+
+
 		if (distanceToNextCheckpoint < zoneRadiusPlusExtra)
 		{
 			suggestedThrust = K_MAX_THRUST / 2;
@@ -944,14 +961,10 @@ public:
 			{
 				UpdateFirstLap();
 			}
-			AdjustTrajectoryPointsOnPaths();
-			UpdateThrust();
 		}
-		else
-		{
-			AdjustTrajectory();
-			UpdateState();
-		}
+		AdjustTrajectory();
+		UpdateThrust();
+		
 		TryBoost();
 		PrintCurrentChoice();
 	}

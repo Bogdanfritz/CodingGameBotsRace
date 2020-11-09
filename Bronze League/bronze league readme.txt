@@ -145,3 +145,27 @@ I would estimate about 10 hrs of work have been affected / slowed down by this s
 I made some "improvements" to the code to slow and speed up gradually. But the results are... not impressive.
 I've checked my submits and my best results were a simpler version 2 days ago.
 So will recheck that one.
+
+
+With the algorithm 2 days ago I reached position 12,971 out of 25,557
+I think i reached something in the 9600 range but i did not get a screenshot of it.
+I'm waiting for the position to stabilize then i'll commit again the previous code.
+
+Overall time in this league - 18-20 hours.
+Obtained best ranking that i can prove - 11,667st
+
+The most difficult issue I encountered was working blindly with vectors, without my turstworthy debugging options. 
+I did my best logging but I lost significant hours due to lack of proper information. This is probably similar to live debugging issues.
+
+The second most problematic issue was lack of proper information regarding My pod orientation. As i said, not sure if it's my lack of knowledge and I could have calculated it myself.
+
+Overall the process was fun and seriously challenging. 
+I have had three slightly different attempts of improving my base algorithm but failed in all three to make them better than the base.
+I wanted to account for turns and have vectors slightly angled out of the point so that I could take turns drifting, keeping maximum momentum. 
+
+What i think can be improved is this feature of accounting for the next turn angle, as well as slowing down before the turn.
+I strongly believe the racing strategy is good, but my implementation of it was terrible. That or.. I was very close to finalizing the algorithm but had slight issues with certain values here and there
+and I could not figure it out due to exhaustion. 
+
+I also learned that working alone on a difficult feature is difficult and it is much more productive to collaborate and share thoughts and ideas with others. 
+Going outside of my thinking box and talking with someone else often helped me realise facts or ideas I didn't before.
